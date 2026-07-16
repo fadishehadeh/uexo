@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="UEXO">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>UEXO</title>
+<style>
+  :root {
+    --black: #000000;
+    --white: #F3F3F3;
+    --blue: #007FFF;
+    --deep: #0058B3;
+    --card: #111111;
+    --muted: #888888;
+    --border: #222222;
+    --nav-h: 64px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--black); font-family: var(--font); color: var(--white); }
+
+  /* ── APP SHELL ── */
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+  /* ── SCREENS ── */
+  .screen {
+    position: absolute; inset: 0;
+    display: none; flex-direction: column;
+    background: var(--black);
+    overflow: hidden;
+    transition: transform 0.32s cubic-bezier(.4,0,.2,1), opacity 0.28s ease;
+  }
+  .screen.active { display: flex; }
+  .screen.slide-in { animation: slideIn 0.32s cubic-bezier(.4,0,.2,1) forwards; }
+  .screen.slide-out { animation: slideOut 0.28s cubic-bezier(.4,0,.2,1) forwards; }
+  @keyframes slideIn { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes slideOut { from { opacity: 1; } to { opacity: 0; } }
+
+  /* ── BOTTOM NAV ── */
+  #nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: calc(var(--nav-h) + var(--safe-bottom));
+    padding-bottom: var(--safe-bottom);
+    background: rgba(0,0,0,0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: none;
+    flex-direction: row;
+    align-items: flex-start;
+    padding-top: 0;
+    z-index: 100;
+  }
+  #nav.visible { display: flex; }
+  .nav-tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: var(--nav-h); cursor: pointer; gap: 4px; padding-top: 8px;
+    transition: all 0.2s;
+  }
+  .nav-tab svg { width: 22px; height: 22px; transition: all 0.2s; }
+  .nav-tab span { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; color: var(--muted); transition: color 0.2s; }
+  .nav-tab.active span { color: var(--blue); }
+  .nav-tab.active svg path, .nav-tab.active svg rect, .nav-tab.active svg circle, .nav-tab.active svg polygon { fill: var(--blue); }
+  .nav-tab:not(.active) svg path, .nav-tab:not(.active) svg rect, .nav-tab:not(.active) svg circle, .nav-tab:not(.active) svg polygon { fill: var(--muted); }
+
+  /* ── TYPOGRAPHY ── */
+  h1 { font-size: 28px; font-weight: 800; line-height: 1.1; }
+  h2 { font-size: 22px; font-weight: 700; }
+  h3 { font-size: 17px; font-weight: 700; }
+  p { font-size: 14px; line-height: 1.6; color: var(--muted); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px 28px; border-radius: 14px; border: none; cursor: pointer;
+    font-size: 15px; font-weight: 700; font-family: var(--font);
+    transition: all 0.2s; letter-spacing: 0.2px;
+  }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:active { background: var(--deep); transform: scale(0.97); }
+  .btn-ghost { background: transparent; color: var(--white); border: 1.5px solid var(--border); }
+  .btn-ghost:active { background: var(--border); }
+  .btn-full { width: 100%; }
+  .btn-sm { padding: 10px 18px; font-size: 13px; border-radius: 10px; }
+
+  /* ── SCROLLABLE CONTENT ── */
+  .scroll-area {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(var(--nav-h) + var(--safe-bottom) + 16px);
+  }
+  .scroll-area::-webkit-scrollbar { display: none; }
+
+  /* ── STATUS BAR SPACER ── */
+  .status-bar { height: env(safe-area-inset-top, 44px); min-height: 44px; flex-shrink: 0; }
+
+  /* ────────────────────────────────────────
+     ONBOARDING SCREEN
+  ──────────────────────────────────────── */
+  #screen-onboarding {
+    background: linear-gradient(160deg, #0a0a0a 0%, #000814 60%, #001533 100%);
+    align-items: center; justify-content: space-between;
+    padding: 60px 32px 60px;
+  }
+  .ob-top { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 20px; }
+  .ob-logo { width: 140px; }
+  .ob-tagline { font-size: 14px; color: var(--muted); letter-spacing: 0.5px; text-align: center; }
+  .ob-hero {
+    background: linear-gradient(135deg, #001a40 0%, #003380 100%);
+    border: 1px solid #004099;
+    border-radius: 24px; padding: 28px 24px; width: 100%;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .ob-hero-title { font-size: 26px; font-weight: 800; text-align: center; line-height: 1.2; }
+  .ob-hero-title span { color: var(--blue); }
+  .ob-hero-sub { text-align: center; font-size: 13px; color: #8899bb; line-height: 1.6; }
+  .ob-stats { display: flex; justify-content: space-around; padding-top: 8px; }
+  .ob-stat { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .ob-stat strong { font-size: 22px; font-weight: 800; color: var(--white); }
+  .ob-stat span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .ob-bottom { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+  .ob-lang-label { text-align: center; font-size: 13px; color: var(--muted); }
+  .ob-lang-btns { display: flex; gap: 12px; }
+  .ob-lang-btn {
+    flex: 1; padding: 16px; border-radius: 14px; border: 1.5px solid var(--border);
+    background: var(--card); cursor: pointer; display: flex; flex-direction: column;
+    align-items: center; gap: 6px; transition: all 0.2s;
+  }
+  .ob-lang-btn:active { transform: scale(0.97); }
+  .ob-lang-btn.selected { border-color: var(--blue); background: rgba(0,127,255,0.12); }
+  .ob-lang-btn .flag { font-size: 28px; }
+  .ob-lang-btn .lang-name { font-size: 13px; font-weight: 700; color: var(--white); }
+  .ob-lang-btn .lang-sub { font-size: 11px; color: var(--muted); }
+
+  /* ────────────────────────────────────────
+     FEED SCREEN
+  ──────────────────────────────────────── */
+  #screen-feed .screen-header {
+    padding: 0 16px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #screen-feed .screen-header h2 { font-size: 26px; font-weight: 800; }
+  .avatar-btn {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  .categories {
+    display: flex; gap: 8px; overflow-x: auto; padding: 0 16px 16px;
+    scrollbar-width: none;
+  }
+  .categories::-webkit-scrollbar { display: none; }
+  .cat-chip {
+    flex-shrink: 0; padding: 7px 16px; border-radius: 20px;
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    border: 1.5px solid var(--border); background: var(--card); color: var(--muted);
+  }
+  .cat-chip.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+  /* Lesson Cards */
+  .lesson-cards { display: flex; flex-direction: column; gap: 16px; padding: 0 16px; }
+  .lesson-card {
+    border-radius: 18px; overflow: hidden; cursor: pointer;
+    background: var(--card); border: 1px solid var(--border);
+    transition: transform 0.2s, box-shadow 0.2s;
+    active: transform scale(0.98);
+  }
+  .lesson-card:active { transform: scale(0.98); }
+  .lesson-card-thumb {
+    position: relative; height: 180px; overflow: hidden;
+    display: flex; align-items: flex-end;
+  }
+  .lesson-card-thumb .bg-grad { position: absolute; inset: 0; }
+  .lesson-card-thumb .play-btn {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-60%);
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(0,127,255,0.9); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .play-btn svg { width: 20px; height: 20px; margin-left: 3px; }
+  .lesson-card-thumb .duration-badge {
+    position: absolute; bottom: 10px; right: 10px;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+    padding: 4px 9px; border-radius: 8px; font-size: 11px; font-weight: 700;
+  }
+  .lesson-card-thumb .level-badge {
+    position: absolute; top: 10px; left: 10px;
+    padding: 4px 9px; border-radius: 8px; font-size: 11px; font-weight: 700;
+  }
+  .level-beginner { background: rgba(0,200,100,0.2); color: #00c864; border: 1px solid rgba(0,200,100,0.3); }
+  .level-intermediate { background: rgba(255,160,0,0.2); color: #ffa000; border: 1px solid rgba(255,160,0,0.3); }
+  .level-advanced { background: rgba(255,60,60,0.2); color: #ff3c3c; border: 1px solid rgba(255,60,60,0.3); }
+  .lesson-card-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .lesson-card-title { font-size: 16px; font-weight: 700; line-height: 1.3; }
+  .lesson-card-meta { display: flex; align-items: center; gap: 6px; }
+  .instructor-dot {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--deep);
+    display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0;
+  }
+  .instructor-name { font-size: 12px; color: var(--muted); }
+  .lesson-card-footer { display: flex; align-items: center; justify-content: space-between; }
+  .lesson-stats { display: flex; gap: 12px; }
+  .lesson-stat { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+  .lesson-stat svg { width: 12px; height: 12px; }
+
+  /* ────────────────────────────────────────
+     LESSON PLAYER SCREEN
+  ──────────────────────────────────────── */
+  #screen-lesson { background: var(--black); }
+  .lesson-video {
+    position: relative; height: 230px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .lesson-video .vid-bg { position: absolute; inset: 0; }
+  .lesson-video .vid-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 100%);
+  }
+  .lesson-video .back-btn {
+    position: absolute; top: 16px; left: 16px; z-index: 10;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .back-btn svg { width: 16px; height: 16px; }
+  .lesson-video .vid-play {
+    position: relative; z-index: 5;
+    width: 64px; height: 64px; border-radius: 50%;
+    background: rgba(0,127,255,0.9); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .vid-play:active { transform: scale(0.92); }
+  .vid-play.playing { background: rgba(0,0,0,0.7); }
+  .vid-play svg { width: 26px; height: 26px; margin-left: 4px; }
+  .vid-play.playing svg { margin-left: 0; }
+  .lesson-progress-bar {
+    height: 3px; background: var(--border); flex-shrink: 0;
+    position: relative;
+  }
+  .lesson-progress-bar .fill {
+    height: 100%; background: var(--blue); transition: width 0.5s linear;
+    border-radius: 3px;
+  }
+  .lesson-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 16px; display: flex; flex-direction: column; gap: 20px; }
+  .lesson-body::-webkit-scrollbar { display: none; }
+  .lesson-title-row { display: flex; flex-direction: column; gap: 8px; }
+  .lesson-title-row h2 { font-size: 20px; font-weight: 800; }
+  .lesson-title-row .lesson-instructor { display: flex; align-items: center; gap: 8px; }
+  .key-points { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+  .key-points h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--blue); margin-bottom: 12px; }
+  .key-point { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .key-point:last-child { border-bottom: none; padding-bottom: 0; }
+  .kp-num {
+    width: 22px; height: 22px; border-radius: 50%; background: rgba(0,127,255,0.15); border: 1px solid var(--blue);
+    display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: var(--blue);
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .kp-text { font-size: 13px; line-height: 1.5; color: #ccc; }
+
+  /* Quiz */
+  .quiz-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+  .quiz-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--blue); font-weight: 700; margin-bottom: 10px; }
+  .quiz-question { font-size: 15px; font-weight: 700; line-height: 1.4; margin-bottom: 14px; }
+  .quiz-options { display: flex; flex-direction: column; gap: 8px; }
+  .quiz-option {
+    padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--border);
+    background: #0d0d0d; cursor: pointer; font-size: 14px; font-weight: 500;
+    transition: all 0.2s; text-align: left;
+  }
+  .quiz-option:active { background: var(--border); }
+  .quiz-option.correct { border-color: #00c864; background: rgba(0,200,100,0.1); color: #00c864; }
+  .quiz-option.wrong { border-color: #ff3c3c; background: rgba(255,60,60,0.1); color: #ff3c3c; }
+  .quiz-option.revealed:not(.correct) { opacity: 0.5; }
+  .quiz-result { text-align: center; padding: 10px; font-size: 14px; font-weight: 700; }
+  .quiz-result.correct-msg { color: #00c864; }
+  .quiz-result.wrong-msg { color: #ff9900; }
+  .xp-award {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(0,127,255,0.15); border: 1px solid rgba(0,127,255,0.3);
+    border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: 800; color: var(--blue);
+    margin: 0 auto;
+  }
+
+  /* ────────────────────────────────────────
+     SIMULATOR SCREEN
+  ──────────────────────────────────────── */
+  #screen-simulator { background: var(--black); }
+  .sim-header {
+    display: flex; align-items: center; gap: 12px; padding: 16px 16px 8px;
+    position: relative;
+  }
+  .sim-asset-selector {
+    display: flex; gap: 8px; overflow-x: auto; padding: 0 16px 12px; scrollbar-width: none;
+  }
+  .sim-asset-selector::-webkit-scrollbar { display: none; }
+  .asset-chip {
+    flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 20px; cursor: pointer;
+    border: 1.5px solid var(--border); background: var(--card); transition: all 0.2s;
+  }
+  .asset-chip.active { border-color: var(--blue); background: rgba(0,127,255,0.12); }
+  .asset-chip .asset-sym { font-size: 13px; font-weight: 800; }
+  .asset-chip .asset-chg { font-size: 11px; }
+  .chg-up { color: #00c864; }
+  .chg-down { color: #ff3c3c; }
+
+  .sim-price-row { padding: 0 16px 4px; display: flex; align-items: flex-end; gap: 12px; }
+  .sim-price { font-size: 36px; font-weight: 800; line-height: 1; }
+  .sim-price-change { font-size: 14px; font-weight: 700; padding: 3px 8px; border-radius: 8px; margin-bottom: 4px; }
+  .sim-price-change.up { background: rgba(0,200,100,0.15); color: #00c864; }
+  .sim-price-change.down { background: rgba(255,60,60,0.15); color: #ff3c3c; }
+
+  /* Chart */
+  .chart-container {
+    margin: 8px 16px; border-radius: 16px; overflow: hidden;
+    background: var(--card); border: 1px solid var(--border); padding: 12px 8px 8px;
+    position: relative;
+  }
+  .chart-timeframe { display: flex; gap: 4px; justify-content: flex-end; padding: 0 4px 8px; }
+  .tf-btn {
+    padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;
+    cursor: pointer; background: transparent; color: var(--muted); border: none; font-family: var(--font);
+    transition: all 0.2s;
+  }
+  .tf-btn.active { background: rgba(0,127,255,0.2); color: var(--blue); }
+  #sim-chart { width: 100%; height: 160px; display: block; }
+
+  /* Balance & Trade */
+  .sim-balance-row {
+    margin: 12px 16px; padding: 14px 16px; border-radius: 14px;
+    background: var(--card); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .sim-balance-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .sim-balance-val { font-size: 22px; font-weight: 800; }
+  .sim-pnl { text-align: right; }
+  .sim-pnl-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .sim-pnl-val { font-size: 18px; font-weight: 800; }
+
+  .sim-trade-row { padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+  .sim-qty-row { display: flex; align-items: center; gap: 10px; }
+  .qty-label { font-size: 13px; color: var(--muted); }
+  .qty-controls { display: flex; align-items: center; gap: 0; border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; flex: 1; }
+  .qty-btn {
+    width: 40px; height: 40px; background: var(--card); border: none; cursor: pointer; font-family: var(--font);
+    font-size: 20px; color: var(--white); display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .qty-btn:active { background: var(--border); }
+  .qty-val { flex: 1; text-align: center; font-size: 17px; font-weight: 800; background: #0a0a0a; padding: 10px 0; }
+  .sim-btns { display: flex; gap: 10px; }
+  .sim-btn {
+    flex: 1; padding: 16px; border-radius: 14px; border: none; cursor: pointer;
+    font-size: 16px; font-weight: 800; font-family: var(--font); transition: all 0.2s;
+  }
+  .sim-btn-buy { background: #00c864; color: #000; }
+  .sim-btn-buy:active { background: #009e4d; transform: scale(0.97); }
+  .sim-btn-sell { background: #ff3c3c; color: #fff; }
+  .sim-btn-sell:active { background: #cc2020; transform: scale(0.97); }
+  .sim-toast {
+    position: fixed; bottom: calc(var(--nav-h) + var(--safe-bottom) + 16px);
+    left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px 20px;
+    font-size: 14px; font-weight: 700; white-space: nowrap;
+    opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 200;
+  }
+  .sim-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Trade Log */
+  .trade-log { margin: 12px 16px; }
+  .trade-log-title { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 700; margin-bottom: 10px; }
+  .trade-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .trade-row:last-child { border-bottom: none; }
+  .trade-side {
+    padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;
+    margin-right: 8px;
+  }
+  .trade-side.buy { background: rgba(0,200,100,0.15); color: #00c864; }
+  .trade-side.sell { background: rgba(255,60,60,0.15); color: #ff3c3c; }
+  .trade-info { display: flex; align-items: center; flex: 1; gap: 6px; }
+  .trade-asset { font-size: 13px; font-weight: 700; }
+  .trade-qty { font-size: 12px; color: var(--muted); }
+  .trade-pnl { font-size: 14px; font-weight: 800; }
+  .trade-pnl.pos { color: #00c864; }
+  .trade-pnl.neg { color: #ff3c3c; }
+
+  /* ────────────────────────────────────────
+     PROGRESS (GAMIFICATION) SCREEN
+  ──────────────────────────────────────── */
+  #screen-progress .progress-content { padding: 0 16px; display: flex; flex-direction: column; gap: 16px; }
+
+  /* Streak */
+  .streak-card {
+    background: linear-gradient(135deg, #1a0a00, #2d1500);
+    border: 1px solid #3d2200; border-radius: 20px; padding: 20px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .streak-fire { font-size: 52px; line-height: 1; }
+  .streak-info { flex: 1; }
+  .streak-num { font-size: 42px; font-weight: 900; color: #ff8800; line-height: 1; }
+  .streak-label { font-size: 14px; color: #cc7700; font-weight: 700; margin-top: 2px; }
+  .streak-sub { font-size: 12px; color: #886633; margin-top: 4px; }
+  .streak-days { display: flex; gap: 6px; margin-top: 12px; }
+  .streak-day {
+    width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+  }
+  .streak-day.done { background: rgba(255,136,0,0.25); color: #ff8800; border: 1px solid rgba(255,136,0,0.4); }
+  .streak-day.today { background: #ff8800; color: #000; border: 1px solid #ff8800; }
+  .streak-day.pending { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
+
+  /* XP / Level */
+  .xp-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 20px; }
+  .xp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .xp-level-badge {
+    background: linear-gradient(135deg, var(--blue), var(--deep));
+    border-radius: 10px; padding: 6px 14px;
+    font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .xp-nums { text-align: right; }
+  .xp-current { font-size: 22px; font-weight: 900; }
+  .xp-max { font-size: 13px; color: var(--muted); }
+  .xp-bar-bg { height: 10px; background: var(--border); border-radius: 10px; overflow: hidden; }
+  .xp-bar-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--blue), #00b4ff); transition: width 0.8s cubic-bezier(.4,0,.2,1); }
+  .xp-sub { font-size: 12px; color: var(--muted); margin-top: 8px; text-align: center; }
+
+  /* Badges */
+  .badges-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .badge-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .badge-icon {
+    width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
+    font-size: 28px; border: 1px solid var(--border);
+  }
+  .badge-icon.earned { background: rgba(0,127,255,0.12); border-color: rgba(0,127,255,0.4); }
+  .badge-icon.locked { background: var(--card); filter: grayscale(1) opacity(0.4); }
+  .badge-name { font-size: 10px; text-align: center; color: var(--muted); font-weight: 600; }
+
+  /* Leaderboard */
+  .leaderboard { background: var(--card); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; }
+  .lb-header { padding: 16px 16px 12px; border-bottom: 1px solid var(--border); }
+  .lb-header h3 { font-size: 15px; font-weight: 800; }
+  .lb-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border); transition: background 0.15s;
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-row.me { background: rgba(0,127,255,0.07); }
+  .lb-rank { font-size: 15px; font-weight: 800; width: 24px; text-align: center; }
+  .lb-rank.gold { color: #ffd700; }
+  .lb-rank.silver { color: #c0c0c0; }
+  .lb-rank.bronze { color: #cd7f32; }
+  .lb-avatar {
+    width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 15px; font-weight: 800; flex-shrink: 0;
+  }
+  .lb-name { flex: 1; font-size: 14px; font-weight: 700; }
+  .lb-xp { font-size: 13px; font-weight: 800; color: var(--blue); }
+
+  /* ────────────────────────────────────────
+     PROFILE SCREEN
+  ──────────────────────────────────────── */
+  #screen-profile .profile-hero {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 24px 16px 20px;
+  }
+  .profile-avatar {
+    width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--deep));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 900; border: 3px solid var(--border);
+  }
+  .profile-name { font-size: 20px; font-weight: 800; }
+  .profile-sub { font-size: 13px; color: var(--muted); }
+  .profile-stats { display: flex; gap: 0; margin: 0 16px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .profile-stat { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px; border-right: 1px solid var(--border); }
+  .profile-stat:last-child { border-right: none; }
+  .profile-stat strong { font-size: 20px; font-weight: 900; }
+  .profile-stat span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .settings-group { margin: 0 16px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .settings-group-label { padding: 12px 16px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 700; }
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between; padding: 14px 16px;
+    border-bottom: 1px solid var(--border); cursor: pointer;
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-left { display: flex; align-items: center; gap: 12px; }
+  .setting-icon {
+    width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; background: rgba(0,127,255,0.12);
+  }
+  .setting-label { font-size: 14px; font-weight: 600; }
+  .setting-sub { font-size: 12px; color: var(--muted); }
+  .setting-right { display: flex; align-items: center; gap: 8px; }
+  .setting-val { font-size: 13px; color: var(--muted); }
+
+  /* Toggle Switch */
+  .toggle-switch {
+    position: relative; width: 44px; height: 26px; cursor: pointer;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-slider {
+    position: absolute; inset: 0; border-radius: 26px; background: var(--border);
+    transition: background 0.3s; cursor: pointer;
+  }
+  .toggle-slider::before {
+    content: ''; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px;
+    border-radius: 50%; background: var(--muted); transition: all 0.3s;
+  }
+  .toggle-switch input:checked + .toggle-slider { background: var(--blue); }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); background: #fff; }
+
+  /* Lang toggle pill */
+  .lang-pill {
+    display: flex; border-radius: 10px; overflow: hidden; border: 1.5px solid var(--border);
+  }
+  .lang-pill-opt {
+    padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+    background: transparent; color: var(--muted); border: none; font-family: var(--font);
+    transition: all 0.2s;
+  }
+  .lang-pill-opt.active { background: var(--blue); color: #fff; }
+
+  /* ── SECTION HEADER ── */
+  .section-header { padding: 20px 16px 8px; display: flex; align-items: center; justify-content: space-between; }
+  .section-header h3 { font-size: 16px; font-weight: 800; }
+  .section-header .see-all { font-size: 13px; color: var(--blue); font-weight: 600; cursor: pointer; }
+
+  /* ── SCREEN HEADER ── */
+  .screen-top {
+    padding: 0 16px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .screen-title { font-size: 26px; font-weight: 900; }
+
+  /* RTL support */
+  [dir="rtl"] .quiz-option { text-align: right; }
+  [dir="rtl"] .back-btn svg { transform: scaleX(-1); }
+  [dir="rtl"] .trade-side { margin-right: 0; margin-left: 8px; }
+
+  /* Animations */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  .fade-up { animation: fadeUp 0.4s ease forwards; }
+  .fade-up-2 { animation: fadeUp 0.4s 0.1s ease both; }
+  .fade-up-3 { animation: fadeUp 0.4s 0.2s ease both; }
+  .fade-up-4 { animation: fadeUp 0.4s 0.3s ease both; }
+
+  /* Pulse dot */
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #00c864;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══════════════════════════════════════
+       ONBOARDING
+  ══════════════════════════════════════ -->
+  <div id="screen-onboarding" class="screen active">
+    <div class="ob-top fade-up">
+      <svg class="ob-logo" viewBox="0 0 138 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <text x="0" y="22" font-family="-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif" font-size="26" font-weight="900" fill="#F3F3F3">UEXO</text>
+      </svg>
+      <div class="ob-tagline" id="ob-tagline">Trade Smarter. Learn Faster.</div>
+    </div>
+
+    <div class="ob-hero fade-up-2">
+      <div class="ob-hero-title" id="ob-hero-title">The <span>Duolingo</span> of Trading</div>
+      <div class="ob-hero-sub" id="ob-hero-sub">Bite-size lessons, live simulations, and daily streaks — built for the GCC generation.</div>
+      <div class="ob-stats">
+        <div class="ob-stat"><strong>500K+</strong><span id="ob-stat-1">Learners</span></div>
+        <div class="ob-stat"><strong>120+</strong><span id="ob-stat-2">Lessons</span></div>
+        <div class="ob-stat"><strong>6</strong><span id="ob-stat-3">Markets</span></div>
+      </div>
+    </div>
+
+    <div class="ob-bottom fade-up-3">
+      <div class="ob-lang-label" id="ob-lang-label">Choose your language</div>
+      <div class="ob-lang-btns">
+        <div class="ob-lang-btn selected" id="lang-en" onclick="selectLang('en')">
+          <div class="flag">🇬🇧</div>
+          <div class="lang-name">English</div>
+          <div class="lang-sub">English</div>
+        </div>
+        <div class="ob-lang-btn" id="lang-ar" onclick="selectLang('ar')">
+          <div class="flag">🇦🇪</div>
+          <div class="lang-name">العربية</div>
+          <div class="lang-sub">Arabic</div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" id="ob-cta" onclick="startApp()" style="margin-top:4px">
+        <span id="ob-cta-text">Get Started →</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       FEED
+  ══════════════════════════════════════ -->
+  <div id="screen-feed" class="screen">
+    <div class="status-bar"></div>
+    <div class="screen-header" style="padding:0 16px 12px">
+      <h2 id="feed-title">Learn</h2>
+      <div class="avatar-btn">F</div>
+    </div>
+    <div class="categories" id="feed-categories">
+      <div class="cat-chip active" onclick="selectCat(this,'all')" data-cat="all" id="cat-all">All</div>
+      <div class="cat-chip" onclick="selectCat(this,'stocks')" data-cat="stocks" id="cat-stocks">Stocks</div>
+      <div class="cat-chip" onclick="selectCat(this,'forex')" data-cat="forex" id="cat-forex">Forex</div>
+      <div class="cat-chip" onclick="selectCat(this,'crypto')" data-cat="crypto" id="cat-crypto">Crypto</div>
+      <div class="cat-chip" onclick="selectCat(this,'options')" data-cat="options" id="cat-options">Options</div>
+    </div>
+    <div class="scroll-area">
+      <div class="lesson-cards" id="lesson-cards"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       LESSON PLAYER
+  ══════════════════════════════════════ -->
+  <div id="screen-lesson" class="screen">
+    <div class="status-bar"></div>
+    <div class="lesson-video">
+      <div class="vid-bg" id="lesson-vid-bg"></div>
+      <div class="vid-overlay"></div>
+      <div class="back-btn" onclick="navigate('feed')">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="#F3F3F3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="vid-play" id="vid-play-btn" onclick="togglePlay()">
+        <svg id="vid-play-icon" viewBox="0 0 26 26" fill="none"><path d="M8 4l14 9-14 9V4z" fill="#fff"/></svg>
+      </div>
+    </div>
+    <div class="lesson-progress-bar"><div class="fill" id="lesson-progress" style="width:0%"></div></div>
+    <div class="lesson-body">
+      <div class="lesson-title-row">
+        <h2 id="lesson-title">—</h2>
+        <div class="lesson-instructor">
+          <div class="instructor-dot" id="lesson-inst-dot">A</div>
+          <span class="instructor-name" id="lesson-instructor">—</span>
+          <span style="margin-left:auto;font-size:12px;color:var(--muted)" id="lesson-duration">—</span>
+        </div>
+      </div>
+      <div class="key-points" id="key-points-card">
+        <h3 id="kp-label">KEY POINTS</h3>
+        <div id="key-points-list"></div>
+      </div>
+      <div class="quiz-card">
+        <div class="quiz-label" id="quiz-label">QUICK QUIZ</div>
+        <div class="quiz-question" id="quiz-q">—</div>
+        <div class="quiz-options" id="quiz-options"></div>
+        <div class="quiz-result" id="quiz-result" style="display:none"></div>
+      </div>
+      <button class="btn btn-primary btn-full" id="lesson-next-btn" onclick="navigate('feed')" style="margin-bottom:8px">
+        <span id="lesson-next-text">Next Lesson →</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       SIMULATOR
+  ══════════════════════════════════════ -->
+  <div id="screen-simulator" class="screen">
+    <div class="status-bar"></div>
+    <div class="screen-top">
+      <div class="screen-title" id="sim-title">Simulator</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="live-dot"></div>
+        <span style="font-size:12px;color:#00c864;font-weight:700" id="sim-live-label">PAPER TRADE</span>
+      </div>
+    </div>
+    <div class="scroll-area">
+      <div class="sim-asset-selector" id="sim-asset-selector"></div>
+      <div class="sim-price-row">
+        <div class="sim-price" id="sim-price">—</div>
+        <div class="sim-price-change up" id="sim-chg">—</div>
+      </div>
+      <div class="chart-container">
+        <div class="chart-timeframe">
+          <button class="tf-btn active" onclick="setTf(this,'1D')">1D</button>
+          <button class="tf-btn" onclick="setTf(this,'1W')">1W</button>
+          <button class="tf-btn" onclick="setTf(this,'1M')">1M</button>
+        </div>
+        <canvas id="sim-chart"></canvas>
+      </div>
+      <div class="sim-balance-row">
+        <div>
+          <div class="sim-balance-label" id="sim-bal-label">Paper Balance</div>
+          <div class="sim-balance-val" id="sim-balance">$10,000.00</div>
+        </div>
+        <div class="sim-pnl">
+          <div class="sim-pnl-label" id="sim-pnl-label">Total P&amp;L</div>
+          <div class="sim-pnl-val" id="sim-pnl" style="color:#00c864">+$0.00</div>
+        </div>
+      </div>
+      <div class="sim-trade-row">
+        <div class="sim-qty-row">
+          <span class="qty-label" id="sim-qty-label">Quantity:</span>
+          <div class="qty-controls">
+            <button class="qty-btn" onclick="changeQty(-1)">−</button>
+            <div class="qty-val" id="qty-val">1</div>
+            <button class="qty-btn" onclick="changeQty(1)">+</button>
+          </div>
+        </div>
+        <div class="sim-btns">
+          <button class="sim-btn sim-btn-buy" id="sim-buy-btn" onclick="placeTrade('buy')">BUY</button>
+          <button class="sim-btn sim-btn-sell" id="sim-sell-btn" onclick="placeTrade('sell')">SELL</button>
+        </div>
+      </div>
+      <div class="section-header" style="padding-top:16px">
+        <h3 id="sim-log-title">Trade Log</h3>
+      </div>
+      <div style="padding:0 16px 8px">
+        <div class="trade-log" id="trade-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       PROGRESS
+  ══════════════════════════════════════ -->
+  <div id="screen-progress" class="screen">
+    <div class="status-bar"></div>
+    <div class="screen-top">
+      <div class="screen-title" id="prog-title">Progress</div>
+    </div>
+    <div class="scroll-area">
+      <div class="progress-content">
+        <!-- Streak -->
+        <div class="streak-card fade-up">
+          <div class="streak-fire">🔥</div>
+          <div class="streak-info">
+            <div class="streak-num">7</div>
+            <div class="streak-label" id="streak-label">Day Streak!</div>
+            <div class="streak-sub" id="streak-sub">Keep it up — come back tomorrow!</div>
+            <div class="streak-days" id="streak-days"></div>
+          </div>
+        </div>
+
+        <!-- XP -->
+        <div class="xp-card fade-up-2">
+          <div class="xp-header">
+            <div>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:4px" id="xp-level-label">Current Level</div>
+              <div class="xp-level-badge" id="xp-level-badge">Level 4 — Rising Trader</div>
+            </div>
+            <div class="xp-nums">
+              <div class="xp-current">1,240</div>
+              <div class="xp-max" id="xp-max-label">/ 1,500 XP</div>
+            </div>
+          </div>
+          <div class="xp-bar-bg"><div class="xp-bar-fill" id="xp-bar" style="width:0%"></div></div>
+          <div class="xp-sub" id="xp-sub">260 XP to Level 5</div>
+        </div>
+
+        <!-- Badges -->
+        <div class="fade-up-3">
+          <div class="section-header" style="padding:0 0 10px"><h3 id="badges-title">Badges</h3></div>
+          <div class="badges-grid" id="badges-grid"></div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="leaderboard fade-up-4">
+          <div class="lb-header">
+            <h3 id="lb-title">Weekly Leaderboard</h3>
+          </div>
+          <div id="leaderboard-rows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       PROFILE
+  ══════════════════════════════════════ -->
+  <div id="screen-profile" class="screen">
+    <div class="status-bar"></div>
+    <div class="scroll-area">
+      <div class="profile-hero">
+        <div class="profile-avatar">F</div>
+        <div class="profile-name">Fadi S.</div>
+        <div class="profile-sub" id="profile-sub">Member since 2024 · Dubai, UAE</div>
+      </div>
+      <div class="profile-stats">
+        <div class="profile-stat"><strong>7</strong><span id="ps-streak">Streak</span></div>
+        <div class="profile-stat"><strong>1,240</strong><span>XP</span></div>
+        <div class="profile-stat"><strong>14</strong><span id="ps-lessons">Lessons</span></div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-label" id="sg-language">Language</div>
+        <div class="setting-row">
+          <div class="setting-left">
+            <div class="setting-icon">🌐</div>
+            <div>
+              <div class="setting-label" id="lang-setting-label">App Language</div>
+              <div class="setting-sub" id="lang-setting-sub">Tap to switch</div>
+            </div>
+          </div>
+          <div class="lang-pill">
+            <button class="lang-pill-opt active" id="pill-en" onclick="switchLang('en')">EN</button>
+            <button class="lang-pill-opt" id="pill-ar" onclick="switchLang('ar')">عربي</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-left">
+            <div class="setting-icon">🔔</div>
+            <div>
+              <div class="setting-label" id="notif-label">Notifications</div>
+              <div class="setting-sub" id="notif-sub">Daily reminders</div>
+            </div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div class="setting-left">
+            <div class="setting-icon">📊</div>
+            <div>
+              <div class="setting-label" id="dark-label">Dark Mode</div>
+              <div class="setting-sub" id="dark-sub">Always on</div>
+            </div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-label" id="sg-account">Account</div>
+        <div class="setting-row">
+          <div class="setting-left">
+            <div class="setting-icon">🎯</div>
+            <div class="setting-label" id="goal-label">Daily Goal</div>
+          </div>
+          <div class="setting-right">
+            <span class="setting-val" id="goal-val">3 Lessons / Day</span>
+            <svg viewBox="0 0 8 12" width="8" height="12"><path d="M2 2l4 4-4 4" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-left">
+            <div class="setting-icon">🏆</div>
+            <div class="setting-label" id="league-label">League</div>
+          </div>
+          <div class="setting-right">
+            <span class="setting-val" style="color:#007FFF">Gold League</span>
+            <svg viewBox="0 0 8 12" width="8" height="12"><path d="M2 2l4 4-4 4" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div style="height:8px"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       BOTTOM NAV
+  ══════════════════════════════════════ -->
+  <nav id="nav">
+    <div class="nav-tab active" id="nav-feed" onclick="navigate('feed')">
+      <svg viewBox="0 0 24 24"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h18v2H3z"/></svg>
+      <span id="nav-label-feed">Learn</span>
+    </div>
+    <div class="nav-tab" id="nav-simulator" onclick="navigate('simulator')">
+      <svg viewBox="0 0 24 24"><path d="M3 17l4-4 4 4 4-8 4 4"/><path d="M3 17l4-4 4 4 4-8 4 4" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      <span id="nav-label-sim">Simulator</span>
+    </div>
+    <div class="nav-tab" id="nav-progress" onclick="navigate('progress')">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 11-10 10A10 10 0 0112 2zm0 2a8 8 0 108 8A8 8 0 0012 4zm-1 4h2v5h-2zm0 6h2v2h-2z"/></svg>
+      <span id="nav-label-prog">Progress</span>
+    </div>
+    <div class="nav-tab" id="nav-profile" onclick="navigate('profile')">
+      <svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 110-10 5 5 0 010 10zm-7 8a7 7 0 0114 0H5z"/></svg>
+      <span id="nav-label-prof">Profile</span>
+    </div>
+  </nav>
+</div>
+
+<div class="sim-toast" id="sim-toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────
+let lang = 'en';
+let currentScreen = 'onboarding';
+let selectedAsset = 0;
+let tradeQty = 1;
+let balance = 10000;
+let pnl = 0;
+let trades = [];
+let chartData = {};
+let playing = false;
+let progressInterval = null;
+let lessonProgress = 0;
+let quizAnswered = false;
+
+// ─────────────────────────────────────────────────────────────
+// TRANSLATIONS
+// ─────────────────────────────────────────────────────────────
+const T = {
+  en: {
+    ob_tagline: 'Trade Smarter. Learn Faster.',
+    ob_hero_title: 'The <span>Duolingo</span> of Trading',
+    ob_hero_sub: 'Bite-size lessons, live simulations, and daily streaks — built for the GCC generation.',
+    ob_stat_1: 'Learners', ob_stat_2: 'Lessons', ob_stat_3: 'Markets',
+    ob_lang_label: 'Choose your language',
+    ob_cta: 'Get Started →',
+    feed_title: 'Learn',
+    cat_all: 'All', cat_stocks: 'Stocks', cat_forex: 'Forex', cat_crypto: 'Crypto', cat_options: 'Options',
+    sim_title: 'Simulator', sim_live: 'PAPER TRADE', sim_bal_label: 'Paper Balance', sim_pnl_label: 'Total P&L',
+    sim_qty_label: 'Quantity:', sim_log_title: 'Trade Log',
+    sim_buy: 'BUY', sim_sell: 'SELL',
+    prog_title: 'Progress',
+    streak_label: 'Day Streak!', streak_sub: 'Keep it up — come back tomorrow!',
+    xp_level_label: 'Current Level', xp_level_badge: 'Level 4 — Rising Trader', xp_max_label: '/ 1,500 XP', xp_sub: '260 XP to Level 5',
+    badges_title: 'Badges', lb_title: 'Weekly Leaderboard',
+    kp_label: 'KEY POINTS', quiz_label: 'QUICK QUIZ', lesson_next: 'Next Lesson →',
+    days_short: ['M','T','W','T','F','S','S'],
+    nav_feed: 'Learn', nav_sim: 'Simulator', nav_prog: 'Progress', nav_prof: 'Profile',
+    profile_sub: 'Member since 2024 · Dubai, UAE',
+    sg_language: 'Language', sg_account: 'Account',
+    lang_label: 'App Language', lang_sub: 'Tap to switch',
+    notif_label: 'Notifications', notif_sub: 'Daily reminders',
+    dark_label: 'Dark Mode', dark_sub: 'Always on',
+    goal_label: 'Daily Goal', goal_val: '3 Lessons / Day',
+    league_label: 'League',
+    ps_streak: 'Streak', ps_lessons: 'Lessons',
+    toast_buy: (sym, qty, price) => `✅ Bought ${qty}x ${sym} @ $${price}`,
+    toast_sell: (sym, qty, price) => `✅ Sold ${qty}x ${sym} @ $${price}`,
+    toast_funds: '⚠️ Insufficient balance',
+  },
+  ar: {
+    ob_tagline: 'تداول بذكاء. تعلّم بسرعة.',
+    ob_hero_title: 'دوولينجو <span>التداول</span>',
+    ob_hero_sub: 'دروس قصيرة، محاكاة مباشرة، وسلاسل يومية — مصممة لجيل الخليج.',
+    ob_stat_1: 'متعلم', ob_stat_2: 'درس', ob_stat_3: 'أسواق',
+    ob_lang_label: 'اختر لغتك',
+    ob_cta: 'ابدأ الآن ←',
+    feed_title: 'تعلّم',
+    cat_all: 'الكل', cat_stocks: 'أسهم', cat_forex: 'فوركس', cat_crypto: 'كريبتو', cat_options: 'خيارات',
+    sim_title: 'المحاكي', sim_live: 'تداول وهمي', sim_bal_label: 'الرصيد الوهمي', sim_pnl_label: 'الربح والخسارة',
+    sim_qty_label: 'الكمية:', sim_log_title: 'سجل التداول',
+    sim_buy: 'شراء', sim_sell: 'بيع',
+    prog_title: 'التقدم',
+    streak_label: 'يوم متتالي!', streak_sub: 'واصل! عد غداً.',
+    xp_level_label: 'المستوى الحالي', xp_level_badge: 'المستوى 4 — متداول صاعد', xp_max_label: '/ 1,500 نقطة', xp_sub: '260 نقطة للمستوى 5',
+    badges_title: 'الشارات', lb_title: 'المتصدرون الأسبوعيون',
+    kp_label: 'النقاط الرئيسية', quiz_label: 'اختبار سريع', lesson_next: 'الدرس التالي ←',
+    days_short: ['إ','ث','ث','ر','خ','ج','س'],
+    nav_feed: 'تعلّم', nav_sim: 'المحاكي', nav_prog: 'التقدم', nav_prof: 'الملف',
+    profile_sub: 'عضو منذ 2024 · دبي، الإمارات',
+    sg_language: 'اللغة', sg_account: 'الحساب',
+    lang_label: 'لغة التطبيق', lang_sub: 'اضغط للتبديل',
+    notif_label: 'الإشعارات', notif_sub: 'تذكيرات يومية',
+    dark_label: 'الوضع المظلم', dark_sub: 'دائماً مفعّل',
+    goal_label: 'الهدف اليومي', goal_val: '3 دروس / يوم',
+    league_label: 'الدوري',
+    ps_streak: 'سلسلة', ps_lessons: 'درس',
+    toast_buy: (sym, qty, price) => `✅ اشتريت ${qty}x ${sym} بـ $${price}`,
+    toast_sell: (sym, qty, price) => `✅ بعت ${qty}x ${sym} بـ $${price}`,
+    toast_funds: '⚠️ رصيد غير كافٍ',
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// LESSON DATA
+// ─────────────────────────────────────────────────────────────
+const LESSONS = [
+  {
+    id: 'stocks-101', cat: 'stocks',
+    grad: 'linear-gradient(135deg,#0d1f3c,#1a3d7c)',
+    emoji: '📈',
+    en: {
+      title: 'What is a Stock?', duration: '4 min', level: 'Beginner', instructor: 'Ahmed K.',
+      points: [
+        'A stock represents a fractional ownership share in a company — buying one share means you own a piece of that business.',
+        'Companies issue stocks to raise capital for growth. You profit when the stock price rises or when dividends are paid.',
+        'Stock prices are driven by supply and demand, company earnings, and broader market sentiment.',
+      ],
+      quiz: {
+        q: 'What does owning a stock mean?',
+        options: ['You lend money to a company', 'You own a small part of a company', 'You guarantee a fixed return', 'You become a company director'],
+        correct: 1
+      }
+    },
+    ar: {
+      title: 'ما هو السهم؟', duration: '4 دقائق', level: 'مبتدئ', instructor: 'أحمد ك.',
+      points: [
+        'السهم يمثل حصة ملكية جزئية في شركة — شراؤك سهماً يعني أنك تمتلك جزءاً من تلك الشركة.',
+        'تصدر الشركات الأسهم لجمع رأس المال. تربح عندما يرتفع سعر السهم أو عند توزيع الأرباح.',
+        'تتأثر أسعار الأسهم بالعرض والطلب وأرباح الشركات والمشاعر العامة للسوق.',
+      ],
+      quiz: {
+        q: 'ماذا يعني امتلاكك لسهم في شركة؟',
+        options: ['تُقرض الشركة أموالاً', 'تمتلك جزءاً صغيراً من الشركة', 'تضمن عائداً ثابتاً', 'تصبح مديراً في الشركة'],
+        correct: 1
+      }
+    }
+  },
+  {
+    id: 'candles', cat: 'stocks',
+    grad: 'linear-gradient(135deg,#1a0d2e,#3d1f6e)',
+    emoji: '🕯️',
+    en: {
+      title: 'Reading Candlestick Charts', duration: '6 min', level: 'Intermediate', instructor: 'Sara M.',
+      points: [
+        'A candlestick shows 4 prices: Open, High, Low, Close. The body shows open-to-close; wicks show the price range.',
+        'Green (bullish) candles close higher than they open — buyers are in control. Red (bearish) candles do the opposite.',
+        'Patterns like Doji, Hammer, and Engulfing give clues about potential price reversals.',
+      ],
+      quiz: {
+        q: 'What does a long lower wick on a candle indicate?',
+        options: ['Strong selling pressure', 'Buyers pushed prices back up after a dip', 'The market was closed', 'No trading occurred'],
+        correct: 1
+      }
+    },
+    ar: {
+      title: 'قراءة مخططات الشموع', duration: '6 دقائق', level: 'متوسط', instructor: 'سارة م.',
+      points: [
+        'تُظهر الشمعة 4 أسعار: الافتتاح والأعلى والأدنى والإغلاق. الجسم يعكس حركة الافتتاح والإغلاق.',
+        'الشموع الخضراء (صاعدة) تغلق أعلى من الافتتاح. الشموع الحمراء (هابطة) تفعل العكس.',
+        'أنماط مثل Doji وHammer وEngulfing تُلمح لانعكاسات محتملة في السعر.',
+      ],
+      quiz: {
+        q: 'ماذا تعني الذيل السفلي الطويل في الشمعة؟',
+        options: ['ضغط بيع قوي', 'المشترون أعادوا رفع الأسعار بعد هبوط', 'السوق كان مغلقاً', 'لا تداول حدث'],
+        correct: 1
+      }
+    }
+  },
+  {
+    id: 'bull-bear', cat: 'stocks',
+    grad: 'linear-gradient(135deg,#0d2e1a,#1f6e3d)',
+    emoji: '🐂',
+    en: {
+      title: 'Bull vs Bear Markets', duration: '5 min', level: 'Beginner', instructor: 'Khalid R.',
+      points: [
+        'A bull market is a period of rising prices — typically 20%+ gains — driven by economic optimism and strong fundamentals.',
+        'A bear market sees prices fall 20%+ from recent highs, often tied to recessions, uncertainty, or panic selling.',
+        'Knowing the cycle helps you time entries: buy the dip in a bull market, or wait for the bottom in a bear.',
+      ],
+      quiz: {
+        q: 'A bear market is officially defined as a drop of at least:',
+        options: ['5%', '10%', '20%', '50%'],
+        correct: 2
+      }
+    },
+    ar: {
+      title: 'سوق الثيران مقابل الدببة', duration: '5 دقائق', level: 'مبتدئ', instructor: 'خالد ر.',
+      points: [
+        'سوق الثيران هو فترة ارتفاع الأسعار — عادةً 20%+ — مدفوعاً بالتفاؤل الاقتصادي.',
+        'سوق الدببة يشهد هبوطاً 20%+ من الأعلى، غالباً مرتبطاً بالركود أو حالة الذعر.',
+        'فهم الدورة يساعدك على توقيت الشراء: اشتر الانخفاض في سوق الثيران.',
+      ],
+      quiz: {
+        q: 'يُعرَّف سوق الدببة رسمياً بانخفاض لا يقل عن:',
+        options: ['5%', '10%', '20%', '50%'],
+        correct: 2
+      }
+    }
+  },
+  {
+    id: 'forex-101', cat: 'forex',
+    grad: 'linear-gradient(135deg,#2e1a0d,#6e4520)',
+    emoji: '💱',
+    en: {
+      title: 'Forex Basics: Currency Pairs', duration: '5 min', level: 'Beginner', instructor: 'Layla N.',
+      points: [
+        'Forex trades currency pairs: EUR/USD means buying Euros by selling US Dollars. The first is the base, second is the quote.',
+        'The "spread" is the difference between buy (ask) and sell (bid) prices — this is how brokers make money.',
+        'Major pairs like EUR/USD, GBP/USD are most liquid. Exotic pairs (USD/AED) have higher spreads.',
+      ],
+      quiz: {
+        q: 'In the pair USD/JPY, what does buying mean?',
+        options: ['Selling US Dollars', 'Buying US Dollars with Japanese Yen', 'Buying Japanese Yen', 'Selling Japanese Yen only'],
+        correct: 1
+      }
+    },
+    ar: {
+      title: 'أساسيات الفوركس: أزواج العملات', duration: '5 دقائق', level: 'مبتدئ', instructor: 'ليلى ن.',
+      points: [
+        'الفوركس يتداول أزواج العملات: EUR/USD يعني شراء اليورو ببيع الدولار. الأول أساسي والثاني تسعيري.',
+        'الفارق (Spread) هو الفرق بين سعر الشراء والبيع — هذا مصدر ربح الوسيط.',
+        'الأزواج الرئيسية كـ EUR/USD هي الأكثر سيولة. الأزواج الغريبة كـ USD/AED فروقها أعلى.',
+      ],
+      quiz: {
+        q: 'في الزوج USD/JPY، ماذا يعني الشراء؟',
+        options: ['بيع الدولار الأمريكي', 'شراء الدولار الأمريكي بالين الياباني', 'شراء الين الياباني', 'بيع الين فقط'],
+        correct: 1
+      }
+    }
+  },
+  {
+    id: 'bitcoin', cat: 'crypto',
+    grad: 'linear-gradient(135deg,#2e2200,#6e5500)',
+    emoji: '₿',
+    en: {
+      title: 'Bitcoin: Digital Gold?', duration: '7 min', level: 'Beginner', instructor: 'Omar F.',
+      points: [
+        'Bitcoin is a decentralized digital currency — no central bank controls it. Supply is capped at 21 million coins.',
+        'It runs on blockchain: a distributed ledger where every transaction is verified by a global network of computers.',
+        'Bitcoin halving (every ~4 years) cuts miner rewards in half, historically triggering bull runs.',
+      ],
+      quiz: {
+        q: 'What is Bitcoin\'s maximum supply?',
+        options: ['100 million', '21 million', 'Unlimited', '1 billion'],
+        correct: 1
+      }
+    },
+    ar: {
+      title: 'بيتكوين: ذهب رقمي؟', duration: '7 دقائق', level: 'مبتدئ', instructor: 'عمر ف.',
+      points: [
+        'بيتكوين عملة رقمية لامركزية — لا بنك مركزي يتحكم بها. العرض محدود بـ 21 مليون عملة.',
+        'تعمل على البلوكتشين: دفتر موزع تُتحقق فيه كل معاملة بشبكة عالمية من الحواسيب.',
+        'التنصيف (كل ~4 سنوات) يخفض مكافآت التعدين للنصف، وتاريخياً يُطلق موجات صعود.',
+      ],
+      quiz: {
+        q: 'ما هو الحد الأقصى لعرض بيتكوين؟',
+        options: ['100 مليون', '21 مليون', 'غير محدود', 'مليار'],
+        correct: 1
+      }
+    }
+  },
+];
+
+// ─────────────────────────────────────────────────────────────
+// SIMULATOR DATA
+// ─────────────────────────────────────────────────────────────
+const ASSETS = [
+  { sym: 'AAPL', name: 'Apple Inc.', price: 194.35, chg: +1.24, chgPct: '+0.64%' },
+  { sym: 'BTC', name: 'Bitcoin', price: 67420, chg: +1850, chgPct: '+2.82%' },
+  { sym: 'EUR/USD', name: 'Euro/US Dollar', price: 1.0845, chg: -0.0012, chgPct: '-0.11%' },
+  { sym: 'TSLA', name: 'Tesla Inc.', price: 248.90, chg: -3.45, chgPct: '-1.37%' },
+  { sym: 'XAU/USD', name: 'Gold', price: 2387.50, chg: +12.30, chgPct: '+0.52%' },
+];
+
+// ─────────────────────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────────────────────
+function navigate(id) {
+  const prev = document.getElementById('screen-' + currentScreen);
+  const next = document.getElementById('screen-' + id);
+  if (!next) return;
+  if (prev) prev.classList.remove('active');
+  next.classList.add('active');
+  currentScreen = id;
+
+  // Update nav
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  const activeTab = document.getElementById('nav-' + id);
+  if (activeTab) activeTab.classList.add('active');
+
+  const showNav = ['feed','simulator','progress','profile'].includes(id);
+  document.getElementById('nav').classList.toggle('visible', showNav);
+
+  if (id === 'progress') initProgress();
+  if (id === 'simulator') initSimulator();
+  if (id === 'feed') renderFeed();
+}
+
+// ─────────────────────────────────────────────────────────────
+// LANGUAGE
+// ─────────────────────────────────────────────────────────────
+function selectLang(l) {
+  lang = l;
+  document.getElementById('lang-en').classList.toggle('selected', l === 'en');
+  document.getElementById('lang-ar').classList.toggle('selected', l === 'ar');
+}
+
+function switchLang(l) {
+  lang = l;
+  const html = document.documentElement;
+  html.lang = l;
+  html.dir = l === 'ar' ? 'rtl' : 'ltr';
+  // Update pill
+  document.getElementById('pill-en').classList.toggle('active', l === 'en');
+  document.getElementById('pill-ar').classList.toggle('active', l === 'ar');
+  applyTranslations();
+  renderFeed();
+  initProgress();
+  initSimulator();
+}
+
+function applyTranslations() {
+  const t = T[lang];
+  const s = (id, text) => { const el = document.getElementById(id); if (el) el.innerHTML = text; };
+  s('ob-tagline', t.ob_tagline);
+  s('ob-hero-title', t.ob_hero_title);
+  s('ob-hero-sub', t.ob_hero_sub);
+  s('ob-stat-1', t.ob_stat_1); s('ob-stat-2', t.ob_stat_2); s('ob-stat-3', t.ob_stat_3);
+  s('ob-lang-label', t.ob_lang_label);
+  s('ob-cta-text', t.ob_cta);
+  s('feed-title', t.feed_title);
+  s('cat-all', t.cat_all); s('cat-stocks', t.cat_stocks); s('cat-forex', t.cat_forex);
+  s('cat-crypto', t.cat_crypto); s('cat-options', t.cat_options);
+  s('sim-title', t.sim_title); s('sim-live-label', t.sim_live);
+  s('sim-bal-label', t.sim_bal_label); s('sim-pnl-label', t.sim_pnl_label);
+  s('sim-qty-label', t.sim_qty_label); s('sim-log-title', t.sim_log_title);
+  s('sim-buy-btn', t.sim_buy); s('sim-sell-btn', t.sim_sell);
+  s('prog-title', t.prog_title);
+  s('streak-label', t.streak_label); s('streak-sub', t.streak_sub);
+  s('xp-level-label', t.xp_level_label); s('xp-level-badge', t.xp_level_badge);
+  s('xp-max-label', t.xp_max_label); s('xp-sub', t.xp_sub);
+  s('badges-title', t.badges_title); s('lb-title', t.lb_title);
+  s('kp-label', t.kp_label); s('quiz-label', t.quiz_label);
+  s('lesson-next-btn', t.lesson_next);
+  s('nav-label-feed', t.nav_feed); s('nav-label-sim', t.nav_sim);
+  s('nav-label-prog', t.nav_prog); s('nav-label-prof', t.nav_prof);
+  s('profile-sub', t.profile_sub);
+  s('sg-language', t.sg_language); s('sg-account', t.sg_account);
+  s('lang-setting-label', t.lang_label); s('lang-setting-sub', t.lang_sub);
+  s('notif-label', t.notif_label); s('notif-sub', t.notif_sub);
+  s('dark-label', t.dark_label); s('dark-sub', t.dark_sub);
+  s('goal-label', t.goal_label); s('goal-val', t.goal_val);
+  s('league-label', t.league_label);
+  s('ps-streak', t.ps_streak); s('ps-lessons', t.ps_lessons);
+}
+
+function startApp() {
+  const html = document.documentElement;
+  html.lang = lang;
+  html.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  applyTranslations();
+  navigate('feed');
+}
+
+// ─────────────────────────────────────────────────────────────
+// FEED
+// ─────────────────────────────────────────────────────────────
+let currentCat = 'all';
+
+function selectCat(el, cat) {
+  document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  currentCat = cat;
+  renderFeed();
+}
+
+function renderFeed() {
+  const container = document.getElementById('lesson-cards');
+  const filtered = currentCat === 'all' ? LESSONS : LESSONS.filter(l => l.cat === currentCat);
+  const levelClass = { 'Beginner':'level-beginner','Intermediate':'level-intermediate','Advanced':'level-advanced','مبتدئ':'level-beginner','متوسط':'level-intermediate','متقدم':'level-advanced' };
+  const likes = [12400, 8200, 9700, 5600, 7300];
+  const views = ['124K','82K','97K','56K','73K'];
+  container.innerHTML = filtered.map((l, i) => {
+    const d = l[lang] || l.en;
+    const lClass = levelClass[d.level] || 'level-beginner';
+    return `
+    <div class="lesson-card" onclick="openLesson('${l.id}')">
+      <div class="lesson-card-thumb">
+        <div class="bg-grad" style="background:${l.grad}"></div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:72px;opacity:0.2">${l.emoji}</div>
+        <div class="play-btn">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M4 2l14 9L4 20V2z" fill="#fff"/></svg>
+        </div>
+        <div class="duration-badge">${d.duration}</div>
+        <div class="level-badge ${lClass}">${d.level}</div>
+      </div>
+      <div class="lesson-card-body">
+        <div class="lesson-card-title">${d.title}</div>
+        <div class="lesson-card-meta">
+          <div class="instructor-dot">${d.instructor[0]}</div>
+          <span class="instructor-name">${d.instructor}</span>
+        </div>
+        <div class="lesson-card-footer">
+          <div class="lesson-stats">
+            <div class="lesson-stat">
+              <svg viewBox="0 0 12 12"><path d="M6 1a5 5 0 100 10A5 5 0 006 1zm0 2a3 3 0 110 6A3 3 0 016 3z" fill="currentColor"/></svg>
+              ${views[i % views.length]}
+            </div>
+            <div class="lesson-stat">
+              <svg viewBox="0 0 12 12"><path d="M6 10l-1.4-.85C2 7.27.5 6.11.5 4.5A2.5 2.5 0 016 3.35 2.5 2.5 0 0111.5 4.5c0 1.61-1.5 2.77-4.1 4.65L6 10z" fill="currentColor"/></svg>
+              ${(likes[i % likes.length]/1000).toFixed(1)}K
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <div style="height:4px;width:60px;background:var(--border);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${20+i*15}%;background:var(--blue);border-radius:4px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openLesson(id) {
+  const lesson = LESSONS.find(l => l.id === id);
+  if (!lesson) return;
+  const d = lesson[lang] || lesson.en;
+  document.getElementById('lesson-vid-bg').style.background = lesson.grad;
+  document.getElementById('lesson-title').textContent = d.title;
+  document.getElementById('lesson-instructor').textContent = d.instructor;
+  document.getElementById('lesson-inst-dot').textContent = d.instructor[0];
+  document.getElementById('lesson-duration').textContent = d.duration;
+  // Key points
+  document.getElementById('key-points-list').innerHTML = d.points.map((p, i) =>
+    `<div class="key-point"><div class="kp-num">${i+1}</div><div class="kp-text">${p}</div></div>`
+  ).join('');
+  // Quiz
+  const q = d.quiz;
+  document.getElementById('quiz-q').textContent = q.q;
+  document.getElementById('quiz-result').style.display = 'none';
+  quizAnswered = false;
+  document.getElementById('quiz-options').innerHTML = q.options.map((opt, i) =>
+    `<button class="quiz-option" onclick="answerQuiz(this,${i},${q.correct})">${opt}</button>`
+  ).join('');
+  // Reset progress
+  lessonProgress = 0;
+  document.getElementById('lesson-progress').style.width = '0%';
+  if (progressInterval) clearInterval(progressInterval);
+  playing = false;
+  updatePlayBtn();
+  navigate('lesson');
+}
+
+function togglePlay() {
+  playing = !playing;
+  updatePlayBtn();
+  if (playing) {
+    progressInterval = setInterval(() => {
+      lessonProgress = Math.min(100, lessonProgress + 0.5);
+      document.getElementById('lesson-progress').style.width = lessonProgress + '%';
+      if (lessonProgress >= 100) {
+        clearInterval(progressInterval);
+        playing = false;
+        updatePlayBtn();
+      }
+    }, 120);
+  } else {
+    clearInterval(progressInterval);
+  }
+}
+
+function updatePlayBtn() {
+  const btn = document.getElementById('vid-play-btn');
+  const icon = document.getElementById('vid-play-icon');
+  btn.classList.toggle('playing', playing);
+  icon.innerHTML = playing
+    ? '<rect x="5" y="4" width="4" height="18" rx="1" fill="#fff"/><rect x="15" y="4" width="4" height="18" rx="1" fill="#fff"/>'
+    : '<path d="M8 4l14 9-14 9V4z" fill="#fff"/>';
+}
+
+function answerQuiz(el, chosen, correct) {
+  if (quizAnswered) return;
+  quizAnswered = true;
+  const opts = document.querySelectorAll('.quiz-option');
+  opts.forEach((o, i) => {
+    o.classList.add('revealed');
+    if (i === correct) o.classList.add('correct');
+    if (i === chosen && chosen !== correct) o.classList.add('wrong');
+  });
+  const result = document.getElementById('quiz-result');
+  result.style.display = 'flex';
+  result.style.flexDirection = 'column';
+  result.style.alignItems = 'center';
+  result.style.gap = '8px';
+  if (chosen === correct) {
+    result.innerHTML = `<div class="quiz-result correct-msg">${lang === 'ar' ? '🎉 إجابة صحيحة!' : '🎉 Correct!'}</div>
+      <div class="xp-award">⚡ +25 XP</div>`;
+  } else {
+    result.innerHTML = `<div class="quiz-result wrong-msg">${lang === 'ar' ? '❌ ليس بالضبط — راجع النقاط أعلاه' : '❌ Not quite — review the key points above'}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// SIMULATOR
+// ─────────────────────────────────────────────────────────────
+function initSimulator() {
+  renderAssetSelector();
+  selectAssetAt(selectedAsset);
+}
+
+function renderAssetSelector() {
+  const container = document.getElementById('sim-asset-selector');
+  container.innerHTML = ASSETS.map((a, i) => {
+    const up = a.chg >= 0;
+    return `<div class="asset-chip ${i===selectedAsset?'active':''}" onclick="selectAssetAt(${i})">
+      <span class="asset-sym">${a.sym}</span>
+      <span class="asset-chg ${up?'chg-up':'chg-down'}">${a.chgPct}</span>
+    </div>`;
+  }).join('');
+}
+
+function selectAssetAt(i) {
+  selectedAsset = i;
+  renderAssetSelector();
+  const a = ASSETS[i];
+  const up = a.chg >= 0;
+  document.getElementById('sim-price').textContent = a.price >= 100 ? '$' + a.price.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}) : a.price.toFixed(4);
+  const chgEl = document.getElementById('sim-chg');
+  chgEl.textContent = (up ? '+' : '') + (a.price >= 100 ? '$' + Math.abs(a.chg).toFixed(2) : a.chg.toFixed(4)) + ' (' + a.chgPct + ')';
+  chgEl.className = 'sim-price-change ' + (up ? 'up' : 'down');
+  drawChart(i);
+}
+
+function generatePrices(base, n, volatility) {
+  const prices = [base];
+  for (let i = 1; i < n; i++) {
+    const change = (Math.random() - 0.48) * volatility;
+    prices.push(Math.max(base * 0.6, prices[i-1] * (1 + change/100)));
+  }
+  return prices;
+}
+
+function drawChart(assetIdx) {
+  const canvas = document.getElementById('sim-chart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.parentElement.clientWidth - 16;
+  const h = 160;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.scale(dpr, dpr);
+
+  const asset = ASSETS[assetIdx];
+  if (!chartData[assetIdx]) {
+    chartData[assetIdx] = generatePrices(asset.price * 0.92, 60, asset.price > 10000 ? 3 : 1.8);
+  }
+  const prices = chartData[assetIdx];
+  const min = Math.min(...prices) * 0.998;
+  const max = Math.max(...prices) * 1.002;
+  const range = max - min;
+
+  const toY = v => h - 16 - ((v - min) / range) * (h - 28);
+  const toX = i => (i / (prices.length - 1)) * w;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let g = 0; g <= 3; g++) {
+    const y = 8 + (g / 3) * (h - 24);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  const up = prices[prices.length-1] >= prices[0];
+  grad.addColorStop(0, up ? 'rgba(0,200,100,0.25)' : 'rgba(255,60,60,0.25)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath();
+  ctx.moveTo(toX(0), h);
+  prices.forEach((p, i) => ctx.lineTo(toX(i), toY(p)));
+  ctx.lineTo(toX(prices.length-1), h);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  prices.forEach((p, i) => i === 0 ? ctx.moveTo(toX(i), toY(p)) : ctx.lineTo(toX(i), toY(p)));
+  ctx.strokeStyle = up ? '#00c864' : '#ff3c3c';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Last price dot
+  const lx = toX(prices.length-1), ly = toY(prices[prices.length-1]);
+  ctx.beginPath();
+  ctx.arc(lx, ly, 4, 0, Math.PI*2);
+  ctx.fillStyle = up ? '#00c864' : '#ff3c3c';
+  ctx.fill();
+}
+
+function setTf(el, tf) {
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  // Reset chart data for this asset to simulate different timeframe
+  const n = tf === '1D' ? 60 : tf === '1W' ? 90 : 120;
+  const asset = ASSETS[selectedAsset];
+  chartData[selectedAsset] = generatePrices(asset.price * (tf === '1M' ? 0.85 : 0.92), n, asset.price > 10000 ? 3 : 1.8);
+  drawChart(selectedAsset);
+}
+
+function changeQty(delta) {
+  tradeQty = Math.max(1, Math.min(100, tradeQty + delta));
+  document.getElementById('qty-val').textContent = tradeQty;
+}
+
+function placeTrade(side) {
+  const asset = ASSETS[selectedAsset];
+  const cost = asset.price * tradeQty;
+  const t = T[lang];
+  if (side === 'buy' && cost > balance) {
+    showToast(t.toast_funds, false);
+    return;
+  }
+  // Simulate PnL
+  const slippage = (Math.random() - 0.5) * 0.01;
+  const entryPrice = asset.price * (1 + slippage);
+  const exitPrice = entryPrice * (1 + (Math.random() - 0.45) * 0.02);
+  const tradePnl = (exitPrice - entryPrice) * tradeQty * (side === 'buy' ? 1 : -1);
+  pnl += tradePnl;
+  balance += tradePnl;
+  if (side === 'buy') balance -= 0; // paper trade, no actual deduction
+
+  const displayPrice = asset.price.toLocaleString('en', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  trades.unshift({ side, sym: asset.sym, qty: tradeQty, price: entryPrice, pnl: tradePnl });
+  if (trades.length > 5) trades.pop();
+
+  updateSimBalances();
+  renderTradeLog();
+  showToast(side === 'buy' ? t.toast_buy(asset.sym, tradeQty, displayPrice) : t.toast_sell(asset.sym, tradeQty, displayPrice), tradePnl >= 0);
+}
+
+function updateSimBalances() {
+  document.getElementById('sim-balance').textContent = '$' + balance.toLocaleString('en', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const pnlEl = document.getElementById('sim-pnl');
+  pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2);
+  pnlEl.style.color = pnl >= 0 ? '#00c864' : '#ff3c3c';
+}
+
+function renderTradeLog() {
+  const container = document.getElementById('trade-log');
+  if (trades.length === 0) {
+    container.innerHTML = `<div style="padding:16px 0;text-align:center;color:var(--muted);font-size:13px">${lang === 'ar' ? 'لا توجد صفقات بعد' : 'No trades yet — place your first!'}</div>`;
+    return;
+  }
+  container.innerHTML = trades.map(tr =>
+    `<div class="trade-row">
+      <div class="trade-info">
+        <span class="trade-side ${tr.side}">${tr.side === 'buy' ? (lang === 'ar' ? 'شراء' : 'BUY') : (lang === 'ar' ? 'بيع' : 'SELL')}</span>
+        <span class="trade-asset">${tr.sym}</span>
+        <span class="trade-qty">×${tr.qty}</span>
+      </div>
+      <div class="trade-pnl ${tr.pnl >= 0 ? 'pos' : 'neg'}">${tr.pnl >= 0 ? '+' : ''}$${Math.abs(tr.pnl).toFixed(2)}</div>
+    </div>`
+  ).join('');
+}
+
+function showToast(msg, positive) {
+  const el = document.getElementById('sim-toast');
+  el.textContent = msg;
+  el.style.borderColor = positive ? '#00c864' : '#ff3c3c';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ─────────────────────────────────────────────────────────────
+// PROGRESS
+// ─────────────────────────────────────────────────────────────
+const BADGES = [
+  { emoji: '🎯', name_en: 'First Trade', name_ar: 'أول صفقة', earned: true },
+  { emoji: '🔥', name_en: '7-Day Streak', name_ar: '7 أيام', earned: true },
+  { emoji: '📚', name_en: '5 Lessons', name_ar: '5 دروس', earned: true },
+  { emoji: '🏆', name_en: 'Top 10', name_ar: 'أفضل 10', earned: true },
+  { emoji: '💎', name_en: 'Diamond', name_ar: 'ماسي', earned: false },
+  { emoji: '🚀', name_en: 'Moonshot', name_ar: 'القمر', earned: false },
+  { emoji: '🧠', name_en: 'Expert', name_ar: 'خبير', earned: false },
+  { emoji: '👑', name_en: 'Legend', name_ar: 'أسطورة', earned: false },
+];
+
+const LEADERBOARD = [
+  { rank: 1, name_en: 'Khalid A.', name_ar: 'خالد أ.', xp: 3420, color: '#ffd700', bg: '#2a2200' },
+  { rank: 2, name_en: 'Sara M.', name_ar: 'سارة م.', xp: 2890, color: '#c0c0c0', bg: '#1e1e1e' },
+  { rank: 3, name_en: 'Omar F.', name_ar: 'عمر ف.', xp: 2640, color: '#cd7f32', bg: '#1e1200' },
+  { rank: 4, name_en: 'Fadi S.', name_ar: 'فادي ش.', xp: 1240, color: '#007FFF', bg: 'rgba(0,127,255,0.07)', me: true },
+  { rank: 5, name_en: 'Layla N.', name_ar: 'ليلى ن.', xp: 980, color: '#888', bg: 'transparent' },
+];
+
+const DAYS_STREAK = [
+  { done: true, idx: 0 }, { done: true, idx: 1 }, { done: true, idx: 2 },
+  { done: true, idx: 3 }, { done: true, idx: 4 }, { done: true, idx: 5 },
+  { today: true, idx: 6 },
+];
+
+function initProgress() {
+  const t = T[lang];
+  // Streak days
+  document.getElementById('streak-days').innerHTML = DAYS_STREAK.map(d =>
+    `<div class="streak-day ${d.done?'done':d.today?'today':'pending'}">${t.days_short[d.idx]}</div>`
+  ).join('');
+
+  // XP bar animate
+  setTimeout(() => { document.getElementById('xp-bar').style.width = '82%'; }, 200);
+
+  // Badges
+  document.getElementById('badges-grid').innerHTML = BADGES.map(b =>
+    `<div class="badge-item">
+      <div class="badge-icon ${b.earned?'earned':'locked'}">${b.emoji}</div>
+      <div class="badge-name">${lang === 'ar' ? b.name_ar : b.name_en}</div>
+    </div>`
+  ).join('');
+
+  // Leaderboard
+  document.getElementById('leaderboard-rows').innerHTML = LEADERBOARD.map(r => {
+    const rankClass = r.rank === 1 ? 'gold' : r.rank === 2 ? 'silver' : r.rank === 3 ? 'bronze' : '';
+    const rankIcon = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank;
+    return `<div class="lb-row${r.me?' me':''}">
+      <div class="lb-rank ${rankClass}">${typeof rankIcon === 'string' && rankIcon.includes('🥇') ? rankIcon : r.rank}</div>
+      <div class="lb-avatar" style="background:${r.bg || 'var(--card)'};color:${r.color}">${(lang==='ar'?r.name_ar:r.name_en)[0]}</div>
+      <div class="lb-name">${lang==='ar'?r.name_ar:r.name_en}${r.me?' '+(lang==='ar'?'(أنت)':'(You)'):''}
+      </div>
+      <div class="lb-xp">${r.xp.toLocaleString()} XP</div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderFeed();
+  renderTradeLog();
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+});
+
+// Handle resize for chart
+window.addEventListener('resize', () => {
+  if (currentScreen === 'simulator') drawChart(selectedAsset);
+});
+</script>
+</body>
+</html>
