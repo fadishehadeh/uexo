@@ -148,9 +148,15 @@ h3 { font-size: 17px; font-weight: 700; }
 .feed-card {
   position: relative;
   height: calc(100vh - var(--nav-h) - var(--safe-bottom));
+  height: calc(100dvh - var(--nav-h) - var(--safe-bottom));
   scroll-snap-align: start;
   overflow: hidden;
   cursor: pointer;
+}
+/* Animated video canvas */
+.feed-card-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  z-index: 1; opacity: 0.55;
 }
 .feed-card-bg { position: absolute; inset: 0; }
 .feed-card-overlay {
@@ -175,7 +181,7 @@ h3 { font-size: 17px; font-weight: 700; }
 
 /* Right action buttons */
 .feed-card-actions {
-  position: absolute; right: 14px; bottom: 140px;
+  position: absolute; right: 14px; bottom: 200px;
   display: flex; flex-direction: column; gap: 20px; align-items: center; z-index: 10;
 }
 .feed-action {
@@ -194,7 +200,7 @@ h3 { font-size: 17px; font-weight: 700; }
 
 /* Bottom info */
 .feed-card-info {
-  position: absolute; bottom: 16px; left: 16px; right: 70px; z-index: 10;
+  position: absolute; bottom: 96px; left: 16px; right: 76px; z-index: 10;
 }
 .feed-card-level { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; margin-bottom: 8px; }
 .level-beginner { background: rgba(0,200,100,0.2); color: #00c864; border: 1px solid rgba(0,200,100,0.3); }
@@ -900,6 +906,10 @@ const ASSETS = [
 // ─── NAVIGATION ───
 function navigate(id) {
   if (progressInterval) { clearInterval(progressInterval); progressInterval=null; }
+  // Pause canvas animations when leaving feed
+  if (currentScreen==='feed' && id!=='feed') {
+    Object.values(cardAnimFrames).forEach(fid => cancelAnimationFrame(fid));
+  }
   const prev = document.getElementById('screen-'+currentScreen);
   const next = document.getElementById('screen-'+id);
   if (!next) return;
@@ -996,6 +1006,7 @@ function renderFeed() {
     const prog=progress[i%progress.length];
     return `<div class="feed-card" onclick="openLesson('${l.id}')">
       <div class="feed-card-bg" style="background:${l.grad}"></div>
+      <canvas class="feed-card-canvas" id="fc-canvas-${l.id}"></canvas>
       <div class="feed-card-overlay"></div>
       <div class="feed-card-center">
         <div class="feed-card-emoji">${l.emoji}</div>
@@ -1032,6 +1043,151 @@ function renderFeed() {
       <div class="feed-card-progress"><div class="feed-card-progress-fill" style="width:${prog}%"></div></div>
     </div>`;
   }).join('');
+  // Start animated canvases
+  setTimeout(initCardAnimations, 60);
+}
+
+// ─── CARD VIDEO ANIMATIONS ───
+const cardAnimFrames = {};
+function initCardAnimations() {
+  // Cancel previous
+  Object.values(cardAnimFrames).forEach(id => cancelAnimationFrame(id));
+  const filtered = currentCat==='all' ? LESSONS : LESSONS.filter(l=>l.cat===currentCat);
+  filtered.forEach(l => {
+    const canvas = document.getElementById('fc-canvas-'+l.id);
+    if (!canvas) return;
+    // Size canvas to card
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const w = rect.width || window.innerWidth;
+    const h = rect.height || (window.innerHeight - 64);
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    startCardAnim(canvas, l.id, dpr, w, h);
+  });
+}
+
+function startCardAnim(canvas, id, dpr, W, H) {
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  // Generate candlestick data
+  const bars = 28;
+  let prices = [];
+  const base = 100 + Math.random() * 100;
+  for (let i = 0; i < bars; i++) {
+    const prev = prices[i-1] || base;
+    prices.push(Math.max(base * 0.7, prev * (1 + (Math.random() - 0.47) * 0.025)));
+  }
+  // Ticker symbols
+  const tickers = ['AAPL +0.64%', 'BTC +2.82%', 'ETH +1.23%', 'XAU +0.52%', 'TSLA -1.37%', 'EUR/USD -0.11%', 'AMZN +1.80%', 'NVDA +3.42%'];
+  let tickerX = W + 20;
+  let frame = 0;
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // ── Candlestick chart ──
+    const chartH = H * 0.45;
+    const chartY = H * 0.12;
+    const chartW = W - 32;
+    const minP = Math.min(...prices) * 0.97;
+    const maxP = Math.max(...prices) * 1.03;
+    const range = maxP - minP;
+    const toY = v => chartY + chartH - ((v - minP) / range) * chartH;
+    const barW = (chartW / bars) * 0.55;
+    const barStep = chartW / bars;
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= 4; g++) {
+      const gy = chartY + (g / 4) * chartH;
+      ctx.beginPath(); ctx.moveTo(16, gy); ctx.lineTo(W - 16, gy); ctx.stroke();
+    }
+
+    // Candles
+    prices.forEach((p, i) => {
+      const prev = prices[i-1] || p;
+      const open = prev, close = p;
+      const hi = Math.max(open, close) * (1 + Math.random() * 0.004);
+      const lo = Math.min(open, close) * (1 - Math.random() * 0.004);
+      const up = close >= open;
+      const x = 16 + i * barStep + barStep / 2;
+      const col = up ? 'rgba(0,210,110,0.85)' : 'rgba(255,70,70,0.85)';
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x, toY(hi)); ctx.lineTo(x, toY(lo)); ctx.stroke();
+      ctx.fillStyle = col;
+      const y1 = toY(Math.max(open, close));
+      const y2 = toY(Math.min(open, close));
+      ctx.fillRect(x - barW / 2, y1, barW, Math.max(2, y2 - y1));
+    });
+
+    // Price line (connecting closes)
+    ctx.beginPath();
+    prices.forEach((p, i) => {
+      const x = 16 + i * barStep + barStep / 2;
+      i === 0 ? ctx.moveTo(x, toY(p)) : ctx.lineTo(x, toY(p));
+    });
+    ctx.strokeStyle = 'rgba(0,180,255,0.35)';
+    ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.stroke();
+
+    // Live price tag
+    const lastP = prices[prices.length - 1];
+    const lx = 16 + (bars - 1) * barStep + barStep / 2;
+    const ly = toY(lastP);
+    ctx.fillStyle = 'rgba(0,127,255,0.9)';
+    const tag = ' ' + lastP.toFixed(2) + ' ';
+    ctx.font = `bold 10px monospace`;
+    const tw = ctx.measureText(tag).width;
+    ctx.fillRect(lx + 6, ly - 8, tw + 2, 16);
+    ctx.fillStyle = '#fff'; ctx.fillText(tag, lx + 7, ly + 3.5);
+
+    // Blinking live dot
+    if (Math.floor(frame / 22) % 2 === 0) {
+      ctx.beginPath(); ctx.arc(lx, ly, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#00c864'; ctx.fill();
+    }
+
+    // ── Scrolling ticker ──
+    const tickY = H - 28;
+    // Ticker bg bar
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, tickY - 14, W, 24);
+    ctx.font = '11px monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    const tickStr = tickers.join('   ·   ') + '   ·   ';
+    ctx.fillText(tickStr, tickerX, tickY);
+    const tickW = ctx.measureText(tickStr).width;
+    tickerX -= 0.8;
+    if (tickerX + tickW < 0) tickerX = W + 20;
+
+    // ── Volume bars at bottom ──
+    const volY = H * 0.62;
+    const volH = H * 0.09;
+    prices.forEach((p, i) => {
+      const prev = prices[i-1] || p;
+      const up = p >= prev;
+      const vol = 0.3 + Math.random() * 0.7;
+      const x = 16 + i * barStep;
+      ctx.fillStyle = up ? 'rgba(0,200,100,0.3)' : 'rgba(255,60,60,0.3)';
+      ctx.fillRect(x, volY + volH * (1 - vol), barStep * 0.7, volH * vol);
+    });
+
+    // Slowly evolve prices
+    if (frame % 45 === 0) {
+      const last = prices[prices.length - 1];
+      prices.push(Math.max(base * 0.7, last * (1 + (Math.random() - 0.47) * 0.025)));
+      prices.shift();
+    }
+
+    frame++;
+    cardAnimFrames[id] = requestAnimationFrame(draw);
+  }
+
+  cardAnimFrames[id] = requestAnimationFrame(draw);
 }
 
 function feedLike(el) {
